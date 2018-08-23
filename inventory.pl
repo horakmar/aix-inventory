@@ -44,7 +44,7 @@ Pouziti:
     $script_name [-h] [-tvq]
 
 Program pro pripravu tabulky pro upgrade OS.
-Vypisuje verzi OS, IP rozhrani a stav HACMP.
+Vypisuje CSV: appname;aliases;os_version;ora_dbs;hacmp_state.
 
 Parametry:
     -h  ... help - tato napoveda
@@ -98,11 +98,20 @@ foreach my $i (@ips) {
 
 my $ha_stat = qx/zbx_hacmp_status/;
 chomp $ha_stat;
-my $hacmp_stat = 'None';
+my $hacmp_stat = '';
 $hacmp_stat = 'Online' if($ha_stat eq '1');
 $hacmp_stat = 'Offline' if($ha_stat eq '0');
 
-print "$release;", join(' ',@ips_filt), ";$hacmp_stat\n";
+my $app = qx/zbx_system_info_app app/;
+chomp $app;
+
+my @dbs = qx/ps -eo 'args'/;
+@dbs = grep { $_ =~ /ora_.mon/ and $_ !~ /grep/ } @dbs;
+@dbs = map { local $_ = $_; chomp ;  s/^.*_//; $_ } @dbs;
+
+my %seen;
+@dbs = sort(grep(!$seen{$_}++, @dbs));
+print "$app;", join(',', @ips_filt), ";$release;", join(',', @dbs), ";$hacmp_stat\n";
 
 exit 0;
 
